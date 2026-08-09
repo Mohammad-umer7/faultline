@@ -105,10 +105,12 @@ zerops:
   - setup: web
     build:
       base: nodejs@22
+      # The trailing /~ deploys the CONTENTS of apps/web to the web root.
+      # Without it the files land at /var/www/apps/web and every path 404s.
       deployFiles:
-        - apps/web
+        - apps/web/~
     run:
+      # `base: static` is required. `documentRoot` is NOT valid for static
+      # services - setting it makes the container fail to start and the
+      # subdomain serves 502 with no application or webserver logs at all.
       base: static
-      documentRoot: apps/web
-      routing:
-        root: /

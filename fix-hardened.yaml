@@ -1,0 +1,6 @@
+services:
+  - hostname: hardened
+    type: nodejs@22
+    minContainers: 2
+    maxContainers: 2
+    override: true

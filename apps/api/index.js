@@ -9,6 +9,7 @@
 // samples, held in memory. Postgres/Valkey get wired in for run history and
 // verdict permalinks; live traffic does not need them.
 const http = require('http');
+const https = require('https');
 const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -84,6 +85,81 @@ const VICTIMS = {
 };
 
 const RESET_KEY = process.env.RESET_KEY || 'faultline';
+
+// ─────────────────── Zerops REST API integration ───────────────────
+// The console claims "hardened has a healthCheck and naive does not". Rather
+// than ask anyone to take that on trust from a README, read the real service
+// configuration back out of the official Zerops API and show it. The proof of
+// the experiment's premise comes from the platform, not from us.
+//
+// The token is injected as an env var on the api service and is never in the
+// repo. Without it the endpoint reports `configured: false` and everything else
+// keeps working - infra proof is an enhancement, never a dependency.
+const ZEROPS_API = 'https://api.app-prg1.zerops.io/api/rest/public';
+const ZEROPS_TOKEN = process.env.ZEROPS_API_TOKEN || '';
+const SERVICE_IDS = {
+  naive: process.env.NAIVE_SERVICE_ID || 'JMf9WwoMTu6rMwtL1xCxhA',
+  hardened: process.env.HARDENED_SERVICE_ID || 'BCEMWHZdSlCcCE4atVBU4A',
+};
+
+let infraCache = { at: 0, data: null };
+
+function zeropsGet(path) {
+  return new Promise((resolve) => {
+    const req = https.request(
+      ZEROPS_API + path,
+      { method: 'GET', timeout: 6000, headers: { authorization: 'Bearer ' + ZEROPS_TOKEN } },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => {
+          try { resolve({ ok: res.statusCode === 200, code: res.statusCode, json: JSON.parse(body) }); }
+          catch { resolve({ ok: false, code: res.statusCode, json: null }); }
+        });
+      }
+    );
+    req.on('error', (e) => resolve({ ok: false, err: e.code }));
+    req.on('timeout', () => { req.destroy(); resolve({ ok: false, err: 'TIMEOUT' }); });
+    req.end();
+  });
+}
+
+// The API response shape is not something to guess at, so walk the object and
+// report what is actually there.
+function summarise(stack) {
+  if (!stack) return null;
+  const txt = JSON.stringify(stack);
+  const containers = Array.isArray(stack.containers) ? stack.containers.length : null;
+  const va = stack.verticalAutoscaling || {};
+  const ha = stack.horizontalAutoscaling || {};
+  return {
+    name: stack.name || null,
+    status: stack.status || null,
+    containers,
+    minContainers: ha.minContainerCount ?? stack.minContainers ?? null,
+    maxContainers: ha.maxContainerCount ?? stack.maxContainers ?? null,
+    minCpu: va.minCpuCoreCount ?? null,
+    maxCpu: va.maxCpuCoreCount ?? null,
+    // The claim the whole project rests on, verified against the platform.
+    hasHealthCheck: /"healthCheck"\s*:\s*\{/.test(txt),
+    hasReadinessCheck: /"readinessCheck"\s*:\s*\{/.test(txt),
+  };
+}
+
+async function fetchInfra() {
+  if (!ZEROPS_TOKEN) return { configured: false };
+  if (infraCache.data && Date.now() - infraCache.at < 15_000) return infraCache.data;
+
+  const out = { configured: true, source: ZEROPS_API + '/service-stack/{id}', services: {} };
+  for (const [variant, id] of Object.entries(SERVICE_IDS)) {
+    const r = await zeropsGet('/service-stack/' + id);
+    out.services[variant] = r.ok
+      ? summarise(r.json)
+      : { error: r.err || ('HTTP ' + r.code) };
+  }
+  infraCache = { at: Date.now(), data: out };
+  return out;
+}
 let shownVerdict = null;
 
 const FAULTS = {
@@ -274,6 +350,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (dbReady) { try { await pool.query('DELETE FROM runs'); } catch { /* history only */ } }
     return json(res, 200, { reset: true, note: 'charts refill within ~2s of live traffic' });
+  }
+
+  if (url.pathname === '/api/infra') {
+    return json(res, 200, await fetchInfra());
   }
 
   if (url.pathname === '/api/runs') {

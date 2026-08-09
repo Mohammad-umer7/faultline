@@ -193,6 +193,21 @@
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
 
+  /* ─── infra proof (read from the Zerops API) ──────────────── */
+  .infragrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .infragrid { grid-template-columns: 1fr; } }
+  .ic { border: 1px solid var(--line); border-radius: 9px; padding: 14px; background: var(--panel2); }
+  .ic .icn { font-size: 12px; font-weight: 700; letter-spacing: 2.2px; margin-bottom: 10px; }
+  .ic.n .icn { color: var(--naive); }
+  .ic.h .icn { color: var(--hard); }
+  .irow { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 12px; border-bottom: 1px solid rgba(26,35,49,.55); }
+  .irow:last-child { border-bottom: 0; }
+  .irow .ik { color: var(--dimmer); }
+  .irow .iv { color: var(--text); }
+  .iv.yes { color: var(--good); font-weight: 700; }
+  .iv.no { color: var(--bad); font-weight: 700; }
+  #infrasrc { font-size: 9.5px; letter-spacing: 1px; color: var(--dimmer); }
+
   /* ─── architecture ────────────────────────────────────────── */
   .arch { display: flex; flex-wrap: wrap; gap: 8px; }
   .svc {
@@ -261,6 +276,20 @@
       httpGet: { port: 3000, path: /healthz }
       execPeriod: 10s
       failureTimeout: 10s</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">VERIFIED AGAINST THE ZEROPS API <span id="infrasrc"></span></div>
+    <div class="card" style="padding:16px 18px">
+      <p style="margin:0 0 13px;color:var(--dim);font-size:12.5px">
+        Don't take the diff above on trust. These values are read live from
+        <b style="color:var(--text)">GET /service-stack/{id}</b> on the official Zerops REST API —
+        the platform's own record of how each service is configured.
+      </p>
+      <div class="infragrid" id="infra">
+        <div class="ev empty">reading from the Zerops API…</div>
       </div>
     </div>
   </section>

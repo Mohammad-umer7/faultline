@@ -329,6 +329,39 @@ async function pollRuns() {
   } catch { /* history is a nicety; the live view is the product */ }
 }
 
+// Read the two services' real configuration back from the Zerops REST API, so
+// the premise of the experiment is verifiable rather than asserted.
+async function pollInfra() {
+  try {
+    const d = await (await fetch(API + '/api/infra', { cache: 'no-store' })).json();
+    if (!d.configured) {
+      $('infra').innerHTML =
+        '<div class="ev empty">Zerops API token not configured on this deployment — ' +
+        'the diff above is still the real zerops.yml in the repo.</div>';
+      return;
+    }
+    $('infrasrc').textContent = '· live';
+    $('infra').innerHTML = ['naive', 'hardened'].map((v) => {
+      const s = d.services[v] || {};
+      if (s.error) return card(v, `<div class="irow"><span class="ik">api</span><span class="iv no">${escapeHtml(s.error)}</span></div>`);
+      return card(v, [
+        row('status', s.status || '—'),
+        row('containers running', s.containers ?? '—'),
+        row('min / max containers', `${s.minContainers ?? '—'} / ${s.maxContainers ?? '—'}`),
+        row('healthCheck', s.hasHealthCheck ? 'CONFIGURED' : 'ABSENT', s.hasHealthCheck),
+        row('readinessCheck', s.hasReadinessCheck ? 'CONFIGURED' : 'ABSENT', s.hasReadinessCheck),
+      ].join(''));
+    }).join('');
+  } catch { /* infra proof is an enhancement, never a dependency */ }
+}
+function card(v, inner) {
+  return `<div class="ic ${v === 'naive' ? 'n' : 'h'}"><div class="icn">${v.toUpperCase()}</div>${inner}</div>`;
+}
+function row(k, val, flag) {
+  const cls = flag === true ? ' yes' : flag === false ? ' no' : '';
+  return `<div class="irow"><span class="ik">${escapeHtml(k)}</span><span class="iv${cls}">${escapeHtml(String(val))}</span></div>`;
+}
+
 // The verdict's deliverable is a config block you can paste into your own
 // zerops.yml, so make taking it away a single click.
 document.getElementById('copybtn').onclick = async (e) => {
@@ -346,3 +379,5 @@ poll();
 setInterval(poll, 500);
 pollRuns();
 setInterval(pollRuns, 5000);
+pollInfra();
+setInterval(pollInfra, 20000);

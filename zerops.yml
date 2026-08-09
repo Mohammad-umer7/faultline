@@ -1,12 +1,49 @@
 zerops:
-  # ---------------- victim A: no safety net (control group) ----------------
-  # No deploy.readinessCheck and no run.healthCheck - both omitted deliberately.
-  # A dead or half-dead container here stays in rotation until someone notices.
+  # ═══════════════════════════ control plane ═══════════════════════════
+  # Never a fault target. The spike showed the public L7 balancer serves 502 for
+  # ~2 minutes while a service is REPAIRING, so if the console lived on a victim,
+  # pressing a red button would take down the page the judge is scoring.
+  - setup: api
+    build:
+      base: nodejs@22
+      deployFiles:
+        - apps/api
+    deploy:
+      readinessCheck:
+        httpGet:
+          port: 3000
+          path: /healthz
+        # Go durations, NOT integers. The docs example shows bare ints and the
+        # API rejects them: "cannot unmarshal !!int into time.Duration".
+        failureTimeout: 30s
+        # retryPeriod is clamped to <10s, 1h>; 5s is rejected outright.
+        retryPeriod: 10s
+    run:
+      base: nodejs@22
+      ports:
+        - port: 3000
+          httpSupport: true
+      envVariables:
+        PORT: "3000"
+        NAIVE_URL: http://naive:3000
+        HARDENED_URL: http://hardened:3000
+      start: node apps/api/index.js
+      healthCheck:
+        httpGet:
+          port: 3000
+          path: /healthz
+        failureTimeout: 30s
+        disconnectTimeout: 15s
+
+  # ══════════════════ victim A — the control group ══════════════════
+  # No deploy.readinessCheck. No run.healthCheck. Both omitted deliberately:
+  # measured, a half-dead container here served 500s for 4+ minutes without a
+  # single restart, because nothing was ever told how to check it.
   - setup: naive
     build:
       base: nodejs@22
       deployFiles:
-        - spike
+        - apps/victim
     run:
       base: nodejs@22
       ports:
@@ -15,25 +52,21 @@ zerops:
       envVariables:
         PORT: "3000"
         VARIANT: naive
-      start: node spike/victim.js
+      start: node apps/victim/index.js
 
-  # ---------------- victim B: identical code, real config ----------------
-  # Same file, same build. The entire difference is the six lines below.
+  # ══════════════════ victim B — identical code, real config ══════════════════
+  # Byte-for-byte the same file as `naive`. Everything below is the experiment.
   - setup: hardened
     build:
       base: nodejs@22
       deployFiles:
-        - spike
+        - apps/victim
     deploy:
       readinessCheck:
         httpGet:
           port: 3000
           path: /healthz
-        # These are Go durations, NOT integers. The docs example shows bare ints
-        # (`failureTimeout: 60`) and the API rejects them:
-        #   "cannot unmarshal !!int `30` into time.Duration"
         failureTimeout: 30s
-        # retryPeriod is clamped to <10s, 1h>. Anything below 10s is rejected.
         retryPeriod: 10s
     run:
       base: nodejs@22
@@ -43,7 +76,7 @@ zerops:
       envVariables:
         PORT: "3000"
         VARIANT: hardened
-      start: node spike/victim.js
+      start: node apps/victim/index.js
       healthCheck:
         httpGet:
           port: 3000
@@ -51,17 +84,31 @@ zerops:
         failureTimeout: 15s
         disconnectTimeout: 10s
 
-  # ---------------- portless load generator ----------------
-  # No ports block at all - this is a long-running worker, not a web service.
+  # ══════════════════════════ load generator ══════════════════════════
+  # No ports block - a portless, permanently-running worker. This is why the
+  # console is never empty: real traffic has been flowing the whole time.
   - setup: gen
     build:
       base: nodejs@22
       deployFiles:
-        - spike
+        - apps/gen
     run:
       base: nodejs@22
       envVariables:
-        RPS_PER_TARGET: "10"
+        RPS_PER_TARGET: "20"
         NAIVE_URL: http://naive:3000
         HARDENED_URL: http://hardened:3000
-      start: node spike/gen.js
+        API_URL: http://api:3000
+      start: node apps/gen/index.js
+
+  # ════════════════════════════ the console ════════════════════════════
+  - setup: web
+    build:
+      base: nodejs@22
+      deployFiles:
+        - apps/web
+    run:
+      base: static
+      documentRoot: apps/web
+      routing:
+        root: /

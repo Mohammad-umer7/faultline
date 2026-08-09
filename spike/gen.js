@@ -37,7 +37,11 @@ function once(base, path) {
 async function tick() {
   for (const t of TARGETS) {
     const results = await Promise.all(
-      Array.from({ length: RPS }, () => once(t.url, '/whoami'))
+      // Probe /work, not /whoami. /whoami answers even when the process is
+      // poisoned, so measuring it reports a broken service as healthy - which is
+      // exactly the mistake a naive uptime check makes. /work returns { host }
+      // too, so container identity still comes through.
+      Array.from({ length: RPS }, () => once(t.url, '/work'))
     );
 
     const ok = results.filter((r) => r.ok);

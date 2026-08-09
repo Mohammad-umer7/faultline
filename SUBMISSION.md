@@ -35,6 +35,12 @@
 
 ---
 
+## If a judge asks "why didn't you use ZCP?"
+
+> I used the other supported path — `zerops.yml` plus `zerops-project-import.yaml` and `zcli`, written by hand and version-controlled. The whole topology stands up from one file with one command, which is what let me tear `hardened` down and rebuild it three times while debugging the scaling behaviour. That is infrastructure-as-code rather than agent-driven provisioning, and it is the path Zerops documents alongside ZCP.
+
+Do not claim ZCP. It is not in the repo and a judge would find that in ten seconds.
+
 ## AI disclosure (paste into the form — the rules require this)
 
 > Built with Claude Code (Claude Opus 5) as a pair. The agent wrote most of the application code and the Zerops configuration.

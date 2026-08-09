@@ -1,0 +1,8 @@
+services:
+  - hostname: hardened
+    type: nodejs@22
+    # Fixed at 2/2 on purpose. The demo depends on the container count being
+    # predictable: a judge must see exactly one of two containers disappear and
+    # come back, not an autoscaler wandering between 1 and 4 mid-run.
+    minContainers: 2
+    maxContainers: 2

@@ -45,9 +45,13 @@ function addEvent(text, variant) {
   events.length = Math.min(events.length, 40);
 }
 
-function post(base, path) {
+// keepAlive:false so each request re-resolves and can land on a different
+// container of the same service.
+const agent = new http.Agent({ keepAlive: false });
+
+function postOnce(base, path) {
   return new Promise((resolve) => {
-    const req = http.request(base + path, { method: 'POST', timeout: 4000 }, (res) => {
+    const req = http.request(base + path, { method: 'POST', agent, timeout: 4000 }, (res) => {
       res.resume();
       res.on('end', () => resolve({ ok: res.statusCode < 500, code: res.statusCode }));
     });
@@ -55,6 +59,19 @@ function post(base, path) {
     req.on('timeout', () => { req.destroy(); resolve({ ok: false, err: 'TIMEOUT' }); });
     req.end();
   });
+}
+
+// A service is one hostname in front of N containers, and a single request
+// reaches exactly one of them. Firing once meant the fault could land on a
+// container that happened to be serving no traffic, and the verdict then read
+// "0 failed" for a service that was never actually hit - a flattering result
+// that measured nothing. Fan out wide enough that every container gets it.
+const FANOUT = 14;
+async function post(base, path) {
+  const results = await Promise.all(
+    Array.from({ length: FANOUT }, () => postOnce(base, path))
+  );
+  return results.find((r) => r.ok) || results[0];
 }
 
 // A run injects the SAME fault into both variants at the same instant. Anything

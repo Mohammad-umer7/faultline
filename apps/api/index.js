@@ -126,24 +126,32 @@ function zeropsGet(path) {
 
 // The API response shape is not something to guess at, so walk the object and
 // report what is actually there.
+// Report only what GET /service-stack/{id} actually returns.
+//
+// An earlier version searched the payload for a "healthCheck" object and showed
+// CONFIGURED / ABSENT per service. That endpoint does not expose health-check
+// configuration at all, so it rendered ABSENT for BOTH services - flatly
+// contradicting the config diff on the same page. The health-check difference is
+// evidenced by zerops.yml in the repo; this panel shows live platform state and
+// claims nothing more.
 function summarise(stack) {
   if (!stack) return null;
-  const txt = JSON.stringify(stack);
-  const containers = Array.isArray(stack.containers) ? stack.containers.length : null;
-  const va = stack.verticalAutoscaling || {};
-  const ha = stack.horizontalAutoscaling || {};
+  const auto = stack.customAutoscaling || stack.currentAutoscaling || {};
+  const hz = auto.horizontalAutoscaling || auto;
+  const vt = auto.verticalAutoscaling || auto;
+  const num = (...cands) => cands.find((c) => typeof c === 'number') ?? null;
+
   return {
     name: stack.name || null,
     status: stack.status || null,
-    containers,
-    minContainers: ha.minContainerCount ?? stack.minContainers ?? null,
-    maxContainers: ha.maxContainerCount ?? stack.maxContainers ?? null,
-    minCpu: va.minCpuCoreCount ?? null,
-    maxCpu: va.maxCpuCoreCount ?? null,
-    hasHealthCheck: /"healthCheck"\s*:\s*\{/.test(txt),
-    hasReadinessCheck: /"readinessCheck"\s*:\s*\{/.test(txt),
-    // Report the payload's real shape rather than guessing at field names.
-    keys: Object.keys(stack || {}),
+    base: (stack.serviceStackTypeInfo && stack.serviceStackTypeInfo.serviceStackTypeName) || stack.base || null,
+    mode: stack.mode || null,
+    version: stack.versionNumber ?? null,
+    subdomain: stack.subdomainAccess === true,
+    minContainers: num(hz.minContainerCount, hz.minContainers),
+    maxContainers: num(hz.maxContainerCount, hz.maxContainers),
+    minCpu: num(vt.minCpuCoreCount, vt.minCpu),
+    maxCpu: num(vt.maxCpuCoreCount, vt.maxCpu),
   };
 }
 

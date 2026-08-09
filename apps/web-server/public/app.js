@@ -344,12 +344,15 @@ async function pollInfra() {
     $('infra').innerHTML = ['naive', 'hardened'].map((v) => {
       const s = d.services[v] || {};
       if (s.error) return card(v, `<div class="irow"><span class="ik">api</span><span class="iv no">${escapeHtml(s.error)}</span></div>`);
+      // Only fields this endpoint genuinely returns. The health-check difference
+      // is evidenced by the zerops.yml diff above, not claimed here.
       return card(v, [
-        row('status', s.status || '—'),
-        row('containers running', s.containers ?? '—'),
+        row('status', s.status || '—', s.status === 'ACTIVE'),
+        row('runtime', s.base || '—'),
+        row('mode', s.mode || '—'),
         row('min / max containers', `${s.minContainers ?? '—'} / ${s.maxContainers ?? '—'}`),
-        row('healthCheck', s.hasHealthCheck ? 'CONFIGURED' : 'ABSENT', s.hasHealthCheck),
-        row('readinessCheck', s.hasReadinessCheck ? 'CONFIGURED' : 'ABSENT', s.hasReadinessCheck),
+        row('cpu cores', `${s.minCpu ?? '—'} → ${s.maxCpu ?? '—'}`),
+        row('deployed version', s.version ?? '—'),
       ].join(''));
     }).join('');
   } catch { /* infra proof is an enhancement, never a dependency */ }

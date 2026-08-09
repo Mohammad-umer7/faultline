@@ -284,9 +284,10 @@
     <div class="eyebrow">VERIFIED AGAINST THE ZEROPS API <span id="infrasrc"></span></div>
     <div class="card" style="padding:16px 18px">
       <p style="margin:0 0 13px;color:var(--dim);font-size:12.5px">
-        Don't take the diff above on trust. These values are read live from
-        <b style="color:var(--text)">GET /service-stack/{id}</b> on the official Zerops REST API —
-        the platform's own record of how each service is configured.
+        Live service state read from <b style="color:var(--text)">GET /service-stack/{id}</b> on the
+        official Zerops REST API — the platform's own record of what is deployed and running.
+        The health-check difference itself lives in <b style="color:var(--text)">zerops.yml</b> above;
+        this endpoint does not expose it, so this panel does not pretend to.
       </p>
       <div class="infragrid" id="infra">
         <div class="ev empty">reading from the Zerops API…</div>

@@ -69,7 +69,7 @@ function buildControls(faults, disabled, note) {
       b.className = 'fault';
       b.id = 'btn-' + f.type;
       b.innerHTML = escapeHtml(f.label) +
-        '<span class="sub">' + escapeHtml(FAULT_SUB[f.type] || '') + '</span>';
+        '<span class="sub2">' + escapeHtml(FAULT_SUB[f.type] || '') + '</span>';
       b.onclick = () => inject(f.type);
       box.appendChild(b);
     }
@@ -323,6 +323,19 @@ async function pollRuns() {
     }).join('');
   } catch { /* history is a nicety; the live view is the product */ }
 }
+
+// The verdict's deliverable is a config block you can paste into your own
+// zerops.yml, so make taking it away a single click.
+document.getElementById('copybtn').onclick = async (e) => {
+  try {
+    await navigator.clipboard.writeText($('vyaml').textContent);
+    e.target.textContent = 'COPIED';
+    setTimeout(() => (e.target.textContent = 'COPY'), 1600);
+  } catch {
+    e.target.textContent = 'SELECT IT';
+    setTimeout(() => (e.target.textContent = 'COPY'), 1600);
+  }
+};
 
 poll();
 setInterval(poll, 500);

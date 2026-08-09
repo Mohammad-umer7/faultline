@@ -3,245 +3,370 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Faultline — same code, different Zerops config</title>
+<title>Faultline — prove your config, don't assume it</title>
 <style>
   :root {
-    --bg: #080b11;
-    --panel: #0e131c;
-    --line: #1c2534;
-    --text: #d6e0f0;
-    --dim: #6b7a90;
+    --bg: #06080d;
+    --panel: #0c111a;
+    --panel2: #0a0e16;
+    --line: #1a2331;
+    --line2: #242f42;
+    --text: #dce5f2;
+    --dim: #6d7d95;
+    --dimmer: #4a5668;
     --naive: #ff9f43;
-    --naive-bad: #ff4757;
+    --bad: #ff4d5e;
     --hard: #2ed3c6;
-    --hard-good: #26de81;
+    --good: #26de81;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
-    font-family: var(--mono); font-size: 14px; line-height: 1.5;
+    font-family: var(--mono); font-size: 14px; line-height: 1.55;
     font-variant-numeric: tabular-nums;
+    background-image: radial-gradient(900px 400px at 15% -5%, rgba(46,211,198,.05), transparent 60%),
+                      radial-gradient(700px 350px at 85% 0%, rgba(255,159,67,.045), transparent 60%);
   }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 18px 60px; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 40px 20px 72px; }
 
-  header { margin-bottom: 22px; }
-  h1 { margin: 0; font-size: 26px; letter-spacing: 3px; font-weight: 700; }
-  h1 .dot { color: var(--naive-bad); }
-  .tag { color: var(--dim); margin-top: 6px; font-size: 13px; }
-  .tag b { color: var(--text); font-weight: 600; }
+  /* ─── section scaffolding ─────────────────────────────────── */
+  .eyebrow {
+    font-size: 10px; letter-spacing: 2.4px; color: var(--dimmer);
+    font-weight: 700; margin: 0 0 10px; display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  section { margin-top: 34px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
 
-  .howto {
-    list-style: none; counter-reset: s; margin: 18px 0 0; padding: 14px 16px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  /* ─── hero ────────────────────────────────────────────────── */
+  header { border-bottom: 1px solid var(--line); padding-bottom: 26px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  h1 { margin: 0; font-size: 15px; letter-spacing: 5px; font-weight: 700; }
+  h1 .dot { color: var(--bad); }
+  .pill-live {
+    font-size: 9.5px; letter-spacing: 1.6px; color: var(--good); font-weight: 700;
+    border: 1px solid rgba(38,222,129,.35); background: rgba(38,222,129,.08);
+    padding: 3px 9px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;
   }
-  .howto li {
-    counter-increment: s; position: relative; padding-left: 30px; margin: 5px 0;
-    color: var(--dim); font-size: 13px;
+  .pill-live::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--good);
+    box-shadow: 0 0 0 0 rgba(38,222,129,.6); animation: pulse 2s infinite;
   }
-  .howto li b { color: var(--text); font-weight: 600; }
-  .howto li::before {
-    content: counter(s); position: absolute; left: 0; top: 1px;
-    width: 19px; height: 19px; border-radius: 50%; border: 1px solid var(--line);
-    display: grid; place-items: center; font-size: 10px; color: var(--dim);
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(38,222,129,.5); }
+    70% { box-shadow: 0 0 0 7px rgba(38,222,129,0); }
+    100% { box-shadow: 0 0 0 0 rgba(38,222,129,0); }
   }
-  .howto code { color: var(--hard); }
+  .headline {
+    font-size: clamp(26px, 4.4vw, 42px); line-height: 1.18; font-weight: 700;
+    letter-spacing: -.5px; margin: 22px 0 0; max-width: 20ch;
+  }
+  .headline em { font-style: normal; color: var(--bad); }
+  .sub { color: var(--dim); max-width: 68ch; margin-top: 14px; font-size: 14.5px; }
+  .sub b { color: var(--text); font-weight: 600; }
+  .sub .k { color: var(--hard); }
 
-  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 8px; }
-  button.fault { display: block; text-align: left; }
-  button.fault .sub {
-    display: block; font-size: 10px; letter-spacing: .3px; font-weight: 400;
-    color: var(--dim); margin-top: 4px; text-transform: none;
+  /* ─── the experiment: config diff ─────────────────────────── */
+  .diff { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .diff { grid-template-columns: 1fr; } }
+  .dcol { padding: 16px 18px; }
+  .dcol .dh { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .dname { font-size: 13px; font-weight: 700; letter-spacing: 2.4px; }
+  .dcol.n .dname { color: var(--naive); }
+  .dcol.h .dname { color: var(--hard); }
+  .dtag { font-size: 10px; letter-spacing: 1.2px; color: var(--dimmer); }
+  pre.yml {
+    margin: 0; font-size: 11.5px; line-height: 1.75; color: #7f91ab;
+    white-space: pre; overflow-x: auto;
   }
+  pre.yml .add { color: var(--good); }
+  pre.yml .absent { color: #4b5666; font-style: italic; }
+  pre.yml .key { color: #9fb2cc; }
 
-  /* Live narration of the running experiment - without this a judge sees red
-     bars and has to guess what the system is doing. */
-  .narration {
-    display: none; margin-top: 12px; padding: 14px 16px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  /* ─── how it works ────────────────────────────────────────── */
+  .steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+  .step {
+    flex: 1 1 150px; padding: 13px 15px; background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 9px;
   }
-  .narration.show { display: block; }
-  .narration.done { border-color: #2a3a4d; }
-  .nbar { height: 3px; background: #131a26; border-radius: 2px; overflow: hidden; margin-bottom: 12px; }
-  .nfill { height: 100%; width: 0; background: var(--naive-bad); transition: width .5s linear; }
-  .nhead {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 12px; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 8px;
-  }
-  .ncount { color: var(--dim); font-weight: 400; letter-spacing: 0; }
-  .nline { font-size: 13px; padding: 3px 0 3px 22px; position: relative; color: var(--dim); }
-  .nline::before { position: absolute; left: 0; }
-  .nline.bad { color: #ffb3ba; } .nline.bad::before { content: '✕'; color: var(--naive-bad); }
-  .nline.good { color: #a9ecc8; } .nline.good::before { content: '✓'; color: var(--hard-good); }
-  .nline.wait::before { content: '·'; color: var(--dim); }
+  .step .n { font-size: 9.5px; letter-spacing: 1.6px; color: var(--dimmer); font-weight: 700; }
+  .step .t { margin-top: 5px; font-size: 12.5px; color: var(--text); }
+  .step .d { margin-top: 3px; font-size: 11.5px; color: var(--dim); }
 
-  .pstate {
-    display: inline-block; margin-top: 8px; padding: 3px 9px; border-radius: 4px;
-    font-size: 10px; letter-spacing: 1.4px; font-weight: 700;
-    border: 1px solid var(--line); color: var(--dim);
-  }
-  .pstate.failing { color: var(--naive-bad); border-color: var(--naive-bad); background: rgba(255,71,87,.10); }
-  .pstate.recovered { color: var(--hard-good); border-color: var(--hard-good); background: rgba(38,222,129,.10); }
+  /* ─── controls ────────────────────────────────────────────── */
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
   button.fault {
-    background: #1a0f14; color: #ff6b7a; border: 1px solid #4a1f28;
-    padding: 11px 16px; border-radius: 6px; font-family: var(--mono);
-    font-size: 12px; letter-spacing: 1.2px; font-weight: 700; cursor: pointer;
-    transition: background .12s, border-color .12s, transform .06s;
+    background: linear-gradient(180deg, #1c1017, #150c11);
+    color: #ff8391; border: 1px solid #43202a;
+    padding: 12px 16px; border-radius: 9px; font-family: var(--mono);
+    font-size: 11.5px; letter-spacing: 1.4px; font-weight: 700; cursor: pointer;
+    text-align: left; transition: border-color .14s, background .14s, transform .07s;
   }
-  button.fault:hover:not(:disabled) { background: #2a151c; border-color: #7a2f3c; }
+  button.fault:hover:not(:disabled) { background: linear-gradient(180deg, #2a151d, #1d0f15); border-color: #7d2f3d; }
   button.fault:active:not(:disabled) { transform: translateY(1px); }
-  button.fault:disabled { opacity: .35; cursor: not-allowed; }
-  .status { color: var(--dim); font-size: 12px; }
-  .status.live { color: var(--hard-good); }
+  button.fault:disabled { opacity: .32; cursor: not-allowed; }
+  button.fault .sub2 {
+    display: block; font-size: 10px; letter-spacing: .2px; font-weight: 400;
+    color: var(--dim); margin-top: 5px;
+  }
+  .status { color: var(--dim); font-size: 11.5px; align-self: center; }
+  .status.live { color: var(--good); }
 
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
-  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  /* ─── narration ───────────────────────────────────────────── */
+  .narration { display: none; margin-top: 12px; padding: 16px 18px; }
+  .narration.show { display: block; }
+  .nbar { height: 3px; background: #121a26; border-radius: 3px; overflow: hidden; margin-bottom: 13px; }
+  .nfill { height: 100%; width: 0; background: linear-gradient(90deg, var(--naive), var(--bad)); transition: width .5s linear; }
+  .nhead { display: flex; justify-content: space-between; align-items: baseline; font-size: 11.5px; letter-spacing: 1.8px; font-weight: 700; margin-bottom: 9px; }
+  .ncount { color: var(--dim); font-weight: 400; letter-spacing: 0; }
+  .nline { font-size: 13px; padding: 4px 0 4px 24px; position: relative; color: var(--dim); }
+  .nline::before { position: absolute; left: 0; font-weight: 700; }
+  .nline.bad { color: #ffc2c8; } .nline.bad::before { content: '✕'; color: var(--bad); }
+  .nline.good { color: #b5f0d1; } .nline.good::before { content: '✓'; color: var(--good); }
+  .nline.wait::before { content: '·'; color: var(--dimmer); }
 
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-  .panel.alarm { border-color: var(--naive-bad); box-shadow: 0 0 0 1px rgba(255,71,87,.25), 0 0 34px rgba(255,71,87,.10); }
-  .phead { display: flex; justify-content: space-between; align-items: baseline; }
-  .pname { font-size: 15px; font-weight: 700; letter-spacing: 2px; }
+  /* ─── live panels ─────────────────────────────────────────── */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .panel { padding: 18px; transition: border-color .2s, box-shadow .2s; }
+  .panel.alarm { border-color: var(--bad); box-shadow: 0 0 0 1px rgba(255,77,94,.18), 0 0 40px rgba(255,77,94,.08); }
+  .phead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .pname { font-size: 15px; font-weight: 700; letter-spacing: 2.6px; }
   .naive .pname { color: var(--naive); }
   .hardened .pname { color: var(--hard); }
-  .pcfg { color: var(--dim); font-size: 11px; }
-
-  .tiles { display: flex; gap: 6px; margin: 12px 0 4px; min-height: 30px; align-items: center; }
+  .pcfg { color: var(--dimmer); font-size: 10.5px; text-align: right; }
+  .pstate {
+    display: inline-block; margin-top: 11px; padding: 4px 10px; border-radius: 5px;
+    font-size: 9.5px; letter-spacing: 1.5px; font-weight: 700;
+    border: 1px solid var(--line2); color: var(--dim);
+  }
+  .pstate.failing { color: var(--bad); border-color: rgba(255,77,94,.5); background: rgba(255,77,94,.09); }
+  .pstate.recovered { color: var(--good); border-color: rgba(38,222,129,.5); background: rgba(38,222,129,.09); }
+  .tiles { display: flex; gap: 6px; margin: 13px 0 2px; min-height: 30px; align-items: center; }
   .tile {
-    width: 34px; height: 30px; border-radius: 5px; border: 1px solid var(--line);
-    background: #131a26; display: grid; place-items: center; font-size: 11px; color: var(--dim);
+    width: 32px; height: 29px; border-radius: 6px; border: 1px solid var(--line2);
+    background: #101724; display: grid; place-items: center; font-size: 10px; color: var(--dimmer);
+    transition: all .25s;
   }
-  .naive .tile.up { border-color: var(--naive); color: var(--naive); background: rgba(255,159,67,.10); }
-  .hardened .tile.up { border-color: var(--hard); color: var(--hard); background: rgba(46,211,198,.10); }
-  .tile.none { border-style: dashed; color: #4a5568; }
+  .naive .tile.up { border-color: var(--naive); color: var(--naive); background: rgba(255,159,67,.11); }
+  .hardened .tile.up { border-color: var(--hard); color: var(--hard); background: rgba(46,211,198,.11); }
+  .tile.none { border-style: dashed; border-color: #33202a; color: #5a2b33; }
+  canvas { width: 100%; height: 128px; display: block; margin-top: 10px; }
+  .stats { display: flex; gap: 26px; margin-top: 12px; }
+  .stat .k { color: var(--dimmer); font-size: 9.5px; letter-spacing: 1.4px; font-weight: 700; }
+  .stat .v { font-size: 25px; font-weight: 700; margin-top: 2px; }
+  .v.bad { color: var(--bad); } .v.good { color: var(--good); }
 
-  canvas { width: 100%; height: 120px; display: block; margin-top: 8px; }
-
-  .stats { display: flex; gap: 22px; margin-top: 10px; }
-  .stat .k { color: var(--dim); font-size: 10px; letter-spacing: 1px; }
-  .stat .v { font-size: 22px; font-weight: 700; }
-  .v.bad { color: var(--naive-bad); }
-  .v.good { color: var(--hard-good); }
-
-  .yaml {
-    margin-top: 12px; background: #060910; border: 1px solid var(--line); border-radius: 6px;
-    padding: 10px 12px; font-size: 11.5px; color: #8fa3bd; white-space: pre; overflow-x: auto;
-  }
-  .yaml .add { color: var(--hard-good); }
-  .yaml .miss { color: #5a6675; font-style: italic; }
-
-  .timeline { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .timeline h2 { font-size: 11px; letter-spacing: 2px; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
-  .ev { display: flex; gap: 12px; padding: 3px 0; font-size: 12.5px; border-bottom: 1px solid rgba(28,37,52,.5); }
-  .ev:last-child { border-bottom: 0; }
-  .ev .t { color: var(--dim); flex: 0 0 62px; }
-  .ev.empty { color: var(--dim); }
-
-  .verdict { margin-top: 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 18px; display: none; }
+  /* ─── verdict ─────────────────────────────────────────────── */
+  .verdict { display: none; padding: 20px; }
   .verdict.show { display: block; }
-  .verdict h2 { margin: 0 0 14px; font-size: 12px; letter-spacing: 2px; color: var(--dim); font-weight: 600; }
   .vrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 820px) { .vrow { grid-template-columns: 1fr; } }
-  .vcard { border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
-  .vcard .who { font-size: 12px; letter-spacing: 2px; font-weight: 700; margin-bottom: 8px; }
+  @media (max-width: 900px) { .vrow { grid-template-columns: 1fr; } }
+  .vcard { border: 1px solid var(--line); border-radius: 9px; padding: 16px; background: var(--panel2); }
+  .vcard .who { font-size: 11px; letter-spacing: 2.2px; font-weight: 700; margin-bottom: 9px; }
   .vcard.n .who { color: var(--naive); }
   .vcard.h .who { color: var(--hard); }
-  .vbig { font-size: 30px; font-weight: 700; }
-  .vsub { color: var(--dim); font-size: 12px; }
+  .vbig { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
+  .vsub { color: var(--dim); font-size: 12px; margin-top: 3px; }
+  .fixbox { margin-top: 15px; border: 1px solid var(--line); border-radius: 9px; background: #04070c; }
+  .fixhead {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 14px; border-bottom: 1px solid var(--line);
+    font-size: 9.5px; letter-spacing: 1.6px; color: var(--dimmer); font-weight: 700;
+  }
+  .copy {
+    background: transparent; border: 1px solid var(--line2); color: var(--dim);
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 1px; padding: 4px 9px;
+    border-radius: 5px; cursor: pointer;
+  }
+  .copy:hover { color: var(--hard); border-color: var(--hard); }
+  #vyaml { padding: 13px 15px; margin: 0; font-size: 11.5px; line-height: 1.7; color: #8ba0bb; white-space: pre; overflow-x: auto; }
 
-  footer { margin-top: 26px; color: var(--dim); font-size: 12px; }
-  footer a { color: var(--hard); }
+  /* ─── lists ───────────────────────────────────────────────── */
+  .list { padding: 15px 18px; }
+  .ev { display: flex; gap: 14px; padding: 5px 0; font-size: 12.5px; border-bottom: 1px solid rgba(26,35,49,.6); }
+  .ev:last-child { border-bottom: 0; }
+  .ev .t { color: var(--dimmer); flex: 0 0 64px; }
+  .ev.empty { color: var(--dimmer); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+
+  /* ─── architecture ────────────────────────────────────────── */
+  .arch { display: flex; flex-wrap: wrap; gap: 8px; }
+  .svc {
+    padding: 10px 13px; background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 8px; font-size: 11.5px; flex: 1 1 140px;
+  }
+  .svc .sn { color: var(--text); font-weight: 700; letter-spacing: .6px; }
+  .svc .st { color: var(--dimmer); font-size: 10.5px; margin-top: 2px; }
+  .svc.target { border-color: rgba(255,77,94,.35); }
+  .svc.target .sn { color: var(--bad); }
+
+  footer { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--dimmer); font-size: 12px; }
+  footer a { color: var(--hard); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 <div class="wrap">
+
   <header>
-    <h1>FAULTLINE<span class="dot">.</span></h1>
-    <div class="tag">
-      Two identical Node services on Zerops. Same code, same build, deployed twice.
-      The only difference is <b>six lines of config</b>. Press a red button and watch it matter.
+    <div class="brand">
+      <h1>FAULTLINE<span class="dot">.</span></h1>
+      <span class="pill-live">LIVE · REAL TRAFFIC</span>
     </div>
+    <div class="headline">Your health check is either working or it's <em>decoration</em>.</div>
+    <p class="sub">
+      Two <b>byte-identical</b> Node services are running on Zerops right now. Same code, same build,
+      deployed twice. One has <span class="k">healthCheck</span> in its <span class="k">zerops.yml</span>.
+      The other doesn't. A load generator hits both over the private network at 20 req/s, continuously.
+      <b>Press a button and break them the same way.</b>
+    </p>
   </header>
 
-  <ol class="howto">
-    <li><b>Both panels below are the same app.</b> Identical code, identical build, deployed twice.</li>
-    <li><b>Only the config differs.</b> The left one has no <code>healthCheck</code>. The right one does.</li>
-    <li><b>Press a red button.</b> The identical fault hits both at the same instant. Watch them diverge.</li>
-  </ol>
+  <section>
+    <div class="eyebrow">THE ONLY DIFFERENCE</div>
+    <div class="diff">
+      <div class="card dcol n">
+        <div class="dh"><span class="dname">NAIVE</span><span class="dtag">zerops.yml</span></div>
+<pre class="yml"><span class="key">- setup:</span> naive
+  <span class="key">build:</span>
+    <span class="key">base:</span> nodejs@22
+    <span class="key">deployFiles:</span> [apps/victim]
 
-  <div class="controls" id="controls">
-    <span class="status" id="status">connecting…</span>
-  </div>
+  <span class="absent"># no deploy.readinessCheck</span>
 
-  <div class="narration" id="narration">
-    <div class="nbar"><div class="nfill" id="nfill"></div></div>
-    <div class="nhead"><span id="nphase">—</span><span class="ncount" id="ncount"></span></div>
-    <div class="nline" id="nnaive"></div>
-    <div class="nline" id="nhardened"></div>
-  </div>
-
-  <div class="grid">
-    <div class="panel naive" id="panel-naive">
-      <div class="phead">
-        <span class="pname">NAIVE</span>
-        <span class="pcfg">1 container · no healthCheck</span>
+  <span class="key">run:</span>
+    <span class="key">start:</span> node apps/victim/index.js
+    <span class="absent"># no run.healthCheck</span>
+    <span class="absent">#</span>
+    <span class="absent">#</span>
+    <span class="absent">#</span></pre>
       </div>
-      <div class="pstate" id="state-naive">healthy</div>
-      <div class="tiles" id="tiles-naive"></div>
-      <canvas id="chart-naive"></canvas>
-      <div class="stats">
-        <div class="stat"><div class="k">FAILED REQS</div><div class="v" id="fail-naive">0</div></div>
-        <div class="stat"><div class="k">P95</div><div class="v" id="p95-naive">—</div></div>
-        <div class="stat"><div class="k">CONTAINERS</div><div class="v" id="c-naive">—</div></div>
-      </div>
-    </div>
+      <div class="card dcol h">
+        <div class="dh"><span class="dname">HARDENED</span><span class="dtag">same files, same build</span></div>
+<pre class="yml"><span class="key">- setup:</span> hardened
+  <span class="key">build:</span>
+    <span class="key">base:</span> nodejs@22
+    <span class="key">deployFiles:</span> [apps/victim]
 
-    <div class="panel hardened" id="panel-hardened">
-      <div class="phead">
-        <span class="pname">HARDENED</span>
-        <span class="pcfg">healthCheck + readinessCheck</span>
-      </div>
-      <div class="pstate" id="state-hardened">healthy</div>
-      <div class="tiles" id="tiles-hardened"></div>
-      <canvas id="chart-hardened"></canvas>
-      <div class="stats">
-        <div class="stat"><div class="k">FAILED REQS</div><div class="v" id="fail-hardened">0</div></div>
-        <div class="stat"><div class="k">P95</div><div class="v" id="p95-hardened">—</div></div>
-        <div class="stat"><div class="k">CONTAINERS</div><div class="v" id="c-hardened">—</div></div>
+  <span class="add">deploy:
+    readinessCheck:
+      httpGet: { port: 3000, path: /healthz }</span>
+  <span class="key">run:</span>
+    <span class="key">start:</span> node apps/victim/index.js
+    <span class="add">healthCheck:
+      httpGet: { port: 3000, path: /healthz }
+      execPeriod: 10s
+      failureTimeout: 10s</span></pre>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="verdict" id="verdict">
-    <h2>VERDICT</h2>
-    <div class="vrow">
-      <div class="vcard n">
-        <div class="who">NAIVE</div>
-        <div class="vbig" id="vn">—</div>
-        <div class="vsub" id="vns"></div>
+  <section>
+    <div class="eyebrow">HOW THIS WORKS</div>
+    <div class="steps">
+      <div class="step"><div class="n">01 · INJECT</div><div class="t">One container, both services</div><div class="d">The identical fault, same instant</div></div>
+      <div class="step"><div class="n">02 · MEASURE</div><div class="t">20 req/s, private network</div><div class="d">Every second, both targets</div></div>
+      <div class="step"><div class="n">03 · DIVERGE</div><div class="t">One is watched, one isn't</div><div class="d">Zerops acts only where told to</div></div>
+      <div class="step"><div class="n">04 · PROVE</div><div class="t">Measured verdict + the fix</div><div class="d">Stored in Postgres, good or bad</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">INJECT A FAULT</div>
+    <div class="controls" id="controls">
+      <span class="status" id="status">connecting…</span>
+    </div>
+
+    <div class="narration card" id="narration">
+      <div class="nbar"><div class="nfill" id="nfill"></div></div>
+      <div class="nhead"><span id="nphase">—</span><span class="ncount" id="ncount"></span></div>
+      <div class="nline" id="nnaive"></div>
+      <div class="nline" id="nhardened"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="grid">
+      <div class="card panel naive" id="panel-naive">
+        <div class="phead">
+          <span class="pname">NAIVE</span>
+          <span class="pcfg">no healthCheck<br>nothing is watching</span>
+        </div>
+        <div class="pstate" id="state-naive">healthy · serving normally</div>
+        <div class="tiles" id="tiles-naive"></div>
+        <canvas id="chart-naive"></canvas>
+        <div class="stats">
+          <div class="stat"><div class="k">FAILED REQS</div><div class="v" id="fail-naive">0</div></div>
+          <div class="stat"><div class="k">P95</div><div class="v" id="p95-naive">—</div></div>
+          <div class="stat"><div class="k">CONTAINERS</div><div class="v" id="c-naive">—</div></div>
+        </div>
       </div>
-      <div class="vcard h">
-        <div class="who">HARDENED</div>
-        <div class="vbig" id="vh">—</div>
-        <div class="vsub" id="vhs"></div>
+
+      <div class="card panel hardened" id="panel-hardened">
+        <div class="phead">
+          <span class="pname">HARDENED</span>
+          <span class="pcfg">healthCheck + readinessCheck<br>Zerops is watching</span>
+        </div>
+        <div class="pstate" id="state-hardened">healthy · serving normally</div>
+        <div class="tiles" id="tiles-hardened"></div>
+        <canvas id="chart-hardened"></canvas>
+        <div class="stats">
+          <div class="stat"><div class="k">FAILED REQS</div><div class="v" id="fail-hardened">0</div></div>
+          <div class="stat"><div class="k">P95</div><div class="v" id="p95-hardened">—</div></div>
+          <div class="stat"><div class="k">CONTAINERS</div><div class="v" id="c-hardened">—</div></div>
+        </div>
       </div>
     </div>
-    <div class="yaml" id="vyaml"></div>
-  </div>
+  </section>
 
-  <div class="timeline">
-    <h2>EVENT TIMELINE</h2>
-    <div id="events"><div class="ev empty">nothing yet — traffic is flowing, both services healthy</div></div>
-  </div>
+  <section>
+    <div class="card verdict" id="verdict">
+      <div class="eyebrow" style="margin-bottom:14px">MEASURED VERDICT</div>
+      <div class="vrow">
+        <div class="vcard n"><div class="who">NAIVE</div><div class="vbig" id="vn">—</div><div class="vsub" id="vns"></div></div>
+        <div class="vcard h"><div class="who">HARDENED</div><div class="vbig" id="vh">—</div><div class="vsub" id="vhs"></div></div>
+      </div>
+      <div class="fixbox">
+        <div class="fixhead"><span>THE CONFIG THAT WOULD HAVE PREVENTED THIS</span><button class="copy" id="copybtn">COPY</button></div>
+        <pre id="vyaml"></pre>
+      </div>
+    </div>
+  </section>
 
-  <div class="timeline">
-    <h2>RECENT RUNS <span id="dbstate" style="color:var(--dim)"></span></h2>
-    <div id="runs"><div class="ev empty">no runs recorded yet</div></div>
-  </div>
+  <section>
+    <div class="two">
+      <div>
+        <div class="eyebrow">EVENT TIMELINE</div>
+        <div class="card list" id="events"><div class="ev empty">nothing yet — traffic flowing, both services healthy</div></div>
+      </div>
+      <div>
+        <div class="eyebrow">RUN HISTORY <span id="dbstate"></span></div>
+        <div class="card list" id="runs"><div class="ev empty">no runs recorded yet</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">RUNNING ON ZEROPS · ONE PROJECT</div>
+    <div class="arch">
+      <div class="svc"><div class="sn">console</div><div class="st">nodejs@22 · public</div></div>
+      <div class="svc"><div class="sn">api</div><div class="st">nodejs@22 · control plane</div></div>
+      <div class="svc"><div class="sn">gen</div><div class="st">nodejs@22 · portless worker</div></div>
+      <div class="svc target"><div class="sn">naive</div><div class="st">victim · no checks</div></div>
+      <div class="svc target"><div class="sn">hardened</div><div class="st">victim · checked</div></div>
+      <div class="svc"><div class="sn">db</div><div class="st">postgresql:single@16</div></div>
+      <div class="svc"><div class="sn">cache</div><div class="st">valkey@7.2</div></div>
+    </div>
+  </section>
 
   <footer>
-    7 services on one Zerops project · console · api · load generator · two victims · postgres · valkey ·
-    every number measured over the private network ·
-    <a href="https://github.com/Mohammad-umer7/faultline">source</a>
+    Every number measured over the Zerops private network by plain hostname — no TLS, no service
+    discovery, no credentials in the repo. Failed runs are published too.
+    <a href="https://github.com/Mohammad-umer7/faultline">Source on GitHub →</a>
   </footer>
 </div>
 

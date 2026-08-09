@@ -33,6 +33,13 @@ zerops:
         PORT: "3000"
         NAIVE_URL: http://naive:3000
         HARDENED_URL: http://hardened:3000
+        # Cross-service reference. `zcli project env` lists db_connectionString,
+        # but that does NOT mean it is present inside another service's
+        # container - it has to be referenced explicitly or pg silently falls
+        # back to 127.0.0.1 and you get ECONNREFUSED on localhost.
+        # The LHS name differs from the RHS on purpose; reusing the same name
+        # self-shadows to a literal string.
+        DATABASE_URL: ${db_connectionString}
       start: node apps/api/index.js
       healthCheck:
         httpGet:

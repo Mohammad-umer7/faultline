@@ -140,9 +140,10 @@ function summarise(stack) {
     maxContainers: ha.maxContainerCount ?? stack.maxContainers ?? null,
     minCpu: va.minCpuCoreCount ?? null,
     maxCpu: va.maxCpuCoreCount ?? null,
-    // The claim the whole project rests on, verified against the platform.
     hasHealthCheck: /"healthCheck"\s*:\s*\{/.test(txt),
     hasReadinessCheck: /"readinessCheck"\s*:\s*\{/.test(txt),
+    // Report the payload's real shape rather than guessing at field names.
+    keys: Object.keys(stack || {}),
   };
 }
 

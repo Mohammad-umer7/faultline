@@ -83,6 +83,9 @@ const VICTIMS = {
   hardened: process.env.HARDENED_URL || 'http://hardened:3000',
 };
 
+const RESET_KEY = process.env.RESET_KEY || 'faultline';
+let shownVerdict = null;
+
 const FAULTS = {
   halfdead: { path: '/internal/poison', label: 'HALF-DEAD PROCESS' },
   kill:     { path: '/internal/kill',   label: 'KILL A CONTAINER' },
@@ -253,6 +256,24 @@ const server = http.createServer(async (req, res) => {
       cooldownMsLeft: Math.max(0, COOLDOWN_MS - (Date.now() - lastRunEndedAt)),
       faults: Object.entries(FAULTS).map(([k, v]) => ({ type: k, label: v.label })),
     });
+  }
+
+  // Wipe the board so a recording starts from a clean slate. Keyed so a passer-by
+  // cannot erase the run history, but deliberately GET-able so it can be hit
+  // from the address bar seconds before hitting record.
+  if (url.pathname === '/api/reset' && url.searchParams.get('key') === RESET_KEY) {
+    events.length = 0;
+    samples.naive.length = 0;
+    samples.hardened.length = 0;
+    lastRun = null;
+    currentRun = null;
+    lastRunEndedAt = 0;
+    shownVerdict = null;
+    for (const base of Object.values(VICTIMS)) {
+      for (let i = 0; i < 12; i++) postOnce(base, '/internal/cure');
+    }
+    if (dbReady) { try { await pool.query('DELETE FROM runs'); } catch { /* history only */ } }
+    return json(res, 200, { reset: true, note: 'charts refill within ~2s of live traffic' });
   }
 
   if (url.pathname === '/api/runs') {

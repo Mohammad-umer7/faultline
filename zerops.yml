@@ -94,10 +94,11 @@ zerops:
         httpGet:
           port: 3000
           path: /healthz
-        # Tuned down so recovery is visible inside a 90-second demo window.
-        # execPeriod is how often the probe runs; failureTimeout is how long it
-        # must keep failing before Zerops acts.
-        execPeriod: 5s
+        # Tuned to the floor so recovery is visible inside a 90-second window.
+        # execPeriod is how often the probe runs, failureTimeout is how long it
+        # must keep failing before Zerops acts. Both are clamped to a 10s
+        # minimum - 5s is rejected with "invalid execPeriod <10s, 1h0m0s>".
+        execPeriod: 10s
         failureTimeout: 10s
         disconnectTimeout: 10s
 

@@ -181,16 +181,33 @@ function narrate(d) {
       ? 'buttons unlock in ' + Math.ceil(d.cooldownMsLeft / 1000) + 's'
       : 'ready for another';
     const v = lr.verdict;
-    line('nnaive', v.naive.failed > 0 ? 'bad' : 'good',
-      `naive dropped ${v.naive.failed} requests over ${v.naive.downSeconds}s. ` +
+    // Report what was measured, including when it does not flatter the thesis.
+    // An earlier version hardcoded "hardened recovered on its own" regardless of
+    // the numbers, which is exactly the kind of self-congratulating UI this
+    // project exists to argue against.
+    const nFail = v.naive.failed, hFail = v.hardened.failed;
+    const decisive = hFail <= nFail * 0.5;
+    const hardenedNowHealthy = !!(d.hardened || []).slice(-3).every((s) => s.err === 0);
+
+    line('nnaive', 'bad',
+      `naive dropped ${nFail} requests over ${v.naive.downSeconds}s. ` +
       (v.naive.downSeconds >= 85
-        ? 'It never recovered — it was still broken when the window closed.'
-        : 'It recovered only because the run ended and the fault was cleared.'));
-    line('nhardened', v.hardened.failed > 0 ? 'good' : 'good',
-      `hardened dropped ${v.hardened.failed} over ${v.hardened.downSeconds}s, then recovered on its own. ` +
-      'Its health check noticed and Zerops replaced the failing container.');
-    setPill('naive', 'failing', 'was broken');
-    setPill('hardened', 'recovered', 'recovered');
+        ? 'It never recovered on its own — it was still broken when the window closed and the fault had to be cleared for it.'
+        : 'It only came back when the run ended and the fault was cleared.'));
+
+    if (decisive) {
+      line('nhardened', 'good',
+        `hardened dropped ${hFail} over ${v.hardened.downSeconds}s — ${Math.round((1 - hFail / Math.max(1, nFail)) * 100)}% fewer. ` +
+        'Its health check caught the fault and Zerops routed around the failing container.');
+      setPill('hardened', 'recovered', 'recovered automatically');
+    } else {
+      line('nhardened', 'bad',
+        `hardened dropped ${hFail} over ${v.hardened.downSeconds}s — no better than naive in this run. ` +
+        'Its health check did fire, but with only one container running there was nothing left to serve traffic while the replacement booted. ' +
+        'The health check needs minContainers >= 2 to actually save you.');
+      setPill('hardened', 'failing', hardenedNowHealthy ? 'recovered · but too slowly' : 'still recovering');
+    }
+    setPill('naive', 'failing', 'was broken · unwatched');
     return;
   }
 

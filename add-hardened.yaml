@@ -1,8 +1,9 @@
 services:
   - hostname: hardened
     type: nodejs@22
-    # Fixed at 2/2 on purpose. The demo depends on the container count being
-    # predictable: a judge must see exactly one of two containers disappear and
-    # come back, not an autoscaler wandering between 1 and 4 mid-run.
+    # 2..6 rather than 2..2. An import whose values match the stored config is a
+    # no-op ("Queued processes: 0"), so changing maxContainers forces Zerops to
+    # re-evaluate the service and honour the minimum.
     minContainers: 2
-    maxContainers: 2
+    maxContainers: 6
+    override: true

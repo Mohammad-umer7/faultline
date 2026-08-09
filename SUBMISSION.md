@@ -15,7 +15,9 @@
 
 > Faultline is a public chaos-engineering console with no login. It runs two byte-identical Node services inside one Zerops project — `naive` with one container and no health check, and `hardened` with the same binary plus `healthCheck` and `readinessCheck` — while a load generator hammers both over the private network at 20 requests/second, continuously. Press a red button and the same fault is injected into both services at the same instant. Ninety seconds later you get a verdict card with the measured numbers and the exact `zerops.yml` block that made the difference.
 >
-> A real measured run: `naive` served **1,780 failed requests and was down for 89 consecutive seconds**, and was still broken when the window closed. `hardened` served **60 failed requests, was down for 2 seconds, and recovered by itself.** Same code. Six lines of config.
+> A real measured run: `naive` served **1,760 failed requests and was down for all 88 seconds of the window**, and was still broken when it closed — nothing was watching it, so nothing fixed it. `hardened` was down for **39 seconds and then recovered by itself**: its health check fired and Zerops replaced the failing container. Same code. Six lines of config.
+>
+> Every run is stored and shown, including the ones where the gap was smaller. The claim is not "hardened never fails" — it is that **naive never comes back on its own and hardened does.**
 >
 > The point is not that things break. It is that Zerops can only rescue a service that told it how to check.
 
@@ -53,8 +55,8 @@ Screencast only. No title card, no face, no intro. Product on screen at 0:00.
 | 0:00–0:05 | The console, already live. Both panels green, latency lines moving. | "These are two identical Node services on Zerops. Same code, same build, deployed twice." |
 | 0:05–0:10 | Cut to `zerops.yml` — the `naive` and `hardened` blocks side by side, the healthCheck lines highlighted. | "The only difference is six lines of Zerops config. One has a health check. One doesn't." |
 | 0:10–0:14 | Back to console. Press **HALF-DEAD PROCESS**. | "So let's break both of them the same way — a process that's still alive, but answering every request with a 500." |
-| 0:14–0:30 | **Left panel floods red** and stays red, failed counter climbing into the hundreds. **Right panel** blips and returns to green. | "The left one has no health check, so nothing is watching. It just keeps serving errors. The right one fails for two seconds, Zerops notices, and it recovers on its own." |
-| 0:30–0:42 | Verdict card. Big numbers: `naive 1780 failed / 89s` vs `hardened 60 failed / 2s`. Scroll slightly to the YAML block. | "Ninety seconds later, here's the bill. Seventeen hundred failed requests versus sixty. And here's the exact zerops.yml that would have prevented it." |
+| 0:14–0:30 | **Both panels go red.** Read the narration bar out loud — it updates live. | "Both are broken now. Watch the difference: the right one is being checked. The left one isn't being watched by anything." |
+| 0:30–0:42 | **Right panel turns green again** while the left stays red. Verdict card appears. | "There it goes — the health check fired and Zerops replaced the container. The left one is still broken, and it will stay broken until a human notices. That's the whole difference, and it's five lines of YAML." |
 | 0:42–0:52 | Cut to the **Zerops dashboard**, project view, all seven services running. Hover the `hardened` runtime log showing the restart. | "Seven services on one Zerops project — two victims, a portless load generator hitting them over the private network, Postgres, Valkey, an API and the console." |
 | 0:52–1:00 | Back to console, scroll to RECENT RUNS. Live URL on screen. | "Every number is measured, every run is stored. No login — break it yourself, link's below." |
 

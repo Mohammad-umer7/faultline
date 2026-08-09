@@ -35,9 +35,15 @@ From the deployed system, not a mockup:
 
 | | naive | hardened |
 |---|---|---|
-| Failed requests | **1800** | **80** |
-| Consecutive failing seconds | **90** (the entire window) | **2** |
-| Recovered on its own? | **No** — still broken when the window closed | **Yes** |
+| Failed requests | **1760** | **859** |
+| Consecutive failing seconds | **88** (the entire window) | **39** |
+| Recovered on its own? | **No** — still broken when the window closed | **Yes**, at 39s |
+
+The number that never moves is `naive`: **every** half-dead run lands at 1760–1800 failed and 88–90 seconds, because nothing is watching it, so the fault simply persists for the whole window. `hardened` varies (measured 0, 60, 859 across runs) depending on how quickly the health check fires and a replacement becomes ready — but it recovers. That is the claim, and it is the honest one:
+
+> **`naive` never comes back. `hardened` comes back by itself.**
+
+Every completed run is stored, so `GET /api/runs` and the "recent runs" wall show the real spread rather than a hand-picked best case — including one run where `hardened` did no better than `naive` (1760/88s) while the service was being rescaled mid-experiment.
 
 In a separate test, `naive` was left poisoned and checked four minutes later:
 

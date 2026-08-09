@@ -95,7 +95,6 @@ function render(d) {
   for (const v of VARIANTS) {
     const series = d[v] || [];
     const last = series[series.length - 1];
-    const expected = v === 'hardened' ? 2 : 1;
 
     drawChart($('chart-' + v), series, d.now, d.windowS, COLORS[v]);
 
@@ -111,8 +110,12 @@ function render(d) {
 
     const tiles = $('tiles-' + v);
     const n = last ? last.containers : 0;
+    // Baseline is the high-water mark actually observed in this window, not a
+    // hardcoded expectation - otherwise a service running fewer containers than
+    // configured shows a permanent phantom "dead container" that never was.
+    const baseline = Math.max(1, ...series.map((s) => s.containers));
     tiles.innerHTML = '';
-    for (let i = 0; i < Math.max(expected, n); i++) {
+    for (let i = 0; i < Math.max(baseline, n); i++) {
       const t = document.createElement('div');
       const up = i < n;
       t.className = 'tile ' + (up ? 'up' : 'none');

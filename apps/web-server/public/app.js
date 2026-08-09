@@ -190,5 +190,27 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// Run history lives in Postgres, so it survives an api restart and outlives the
+// 120s in-memory sample window. Polled far less often than the live charts.
+async function pollRuns() {
+  try {
+    const r = await fetch(API + '/api/runs', { cache: 'no-store' });
+    const d = await r.json();
+    $('dbstate').textContent = d.dbReady ? '· postgres' : '· postgres unavailable';
+    if (!d.runs || !d.runs.length) return;
+    $('runs').innerHTML = d.runs.map((run) => {
+      const when = new Date(run.started_at).toISOString().slice(5, 16).replace('T', ' ');
+      return `<div class="ev">
+        <span class="t">${when}</span>
+        <span>${escapeHtml(run.label)} —
+          <b style="color:var(--naive)">naive ${run.naive_failed} failed / ${run.naive_down}s</b> ·
+          <b style="color:var(--hard)">hardened ${run.hardened_failed} failed / ${run.hardened_down}s</b>
+        </span></div>`;
+    }).join('');
+  } catch { /* history is a nicety; the live view is the product */ }
+}
+
 poll();
 setInterval(poll, 500);
+pollRuns();
+setInterval(pollRuns, 5000);

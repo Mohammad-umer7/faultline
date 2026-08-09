@@ -115,8 +115,13 @@ const agent = new http.Agent({ keepAlive: false });
 function postOnce(base, path) {
   return new Promise((resolve) => {
     const req = http.request(base + path, { method: 'POST', agent, timeout: 4000 }, (res) => {
-      res.resume();
-      res.on('end', () => resolve({ ok: res.statusCode < 500, code: res.statusCode }));
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => {
+        let host = null;
+        try { host = JSON.parse(body).host; } catch { /* plain-text reply */ }
+        resolve({ ok: res.statusCode < 500, code: res.statusCode, host });
+      });
     });
     req.on('error', (e) => resolve({ ok: false, err: e.code }));
     req.on('timeout', () => { req.destroy(); resolve({ ok: false, err: 'TIMEOUT' }); });
@@ -124,17 +129,22 @@ function postOnce(base, path) {
   });
 }
 
-// A service is one hostname in front of N containers, and a single request
-// reaches exactly one of them. Firing once meant the fault could land on a
-// container that happened to be serving no traffic, and the verdict then read
-// "0 failed" for a service that was never actually hit - a flattering result
-// that measured nothing. Fan out wide enough that every container gets it.
-const FANOUT = 14;
-async function post(base, path) {
-  const results = await Promise.all(
-    Array.from({ length: FANOUT }, () => postOnce(base, path))
-  );
-  return results.find((r) => r.ok) || results[0];
+// Take out ONE container, and say which one.
+//
+// This went through two wrong versions. Firing a single blind request could land
+// on a container serving no traffic, producing a flattering "0 failed" that
+// measured nothing. Over-correcting to a wide fan-out poisoned every container
+// at once, which leaves no survivor to carry traffic - so a service with a
+// health check looked just as broken as one without, and took just as long.
+//
+// A real incident takes out one container, not all of them. So: hit exactly one,
+// read back which host answered, and name it in the timeline. `naive` has one
+// container so it loses everything. `hardened` loses one of two and the survivor
+// keeps serving while the health check removes the casualty. That is the whole
+// point, and it is now attributable rather than assumed.
+async function postOne(base, path) {
+  const r = await postOnce(base, path);
+  return r;
 }
 
 // A run injects the SAME fault into both variants at the same instant. Anything
@@ -154,8 +164,14 @@ async function startRun(type) {
 
   await Promise.all(
     Object.entries(VICTIMS).map(async ([variant, base]) => {
-      const r = await post(base, fault.path);
-      if (!r.ok && r.err) addEvent(`${variant}: injection returned ${r.err}`, variant);
+      const r = await postOne(base, fault.path);
+      if (!r.ok && r.err) return addEvent(`${variant}: injection returned ${r.err}`, variant);
+      addEvent(
+        r.host
+          ? `${variant}: hit container ${r.host.split('.')[0]}`
+          : `${variant}: fault delivered`,
+        variant
+      );
     })
   );
 
@@ -187,8 +203,11 @@ function finishRun() {
   lastRunEndedAt = Date.now();
   persistRun(run);
 
-  // Reset the victims so the next visitor gets a clean board.
-  for (const base of Object.values(VICTIMS)) post(base, '/internal/cure');
+  // Reset the victims so the next visitor gets a clean board. Curing DOES fan
+  // out - a container left poisoned would poison every later run's numbers.
+  for (const base of Object.values(VICTIMS)) {
+    for (let i = 0; i < 12; i++) postOnce(base, '/internal/cure');
+  }
 }
 
 let lastRun = null;

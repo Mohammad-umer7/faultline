@@ -44,7 +44,9 @@ const server = http.createServer((req, res) => {
     case '/internal/poison':
       poisoned = true;
       console.log(`[victim] ${HOST} poisoned - still alive, now failing every request`);
-      return send(res, 200, 'poisoned');
+      // Report which container took the hit so the console can name it. A fault
+      // you cannot attribute to a specific container is not evidence.
+      return json(res, 200, { poisoned: true, host: HOST });
 
     case '/internal/cure':
       poisoned = false;

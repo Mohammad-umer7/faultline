@@ -94,7 +94,11 @@ zerops:
         httpGet:
           port: 3000
           path: /healthz
-        failureTimeout: 15s
+        # Tuned down so recovery is visible inside a 90-second demo window.
+        # execPeriod is how often the probe runs; failureTimeout is how long it
+        # must keep failing before Zerops acts.
+        execPeriod: 5s
+        failureTimeout: 10s
         disconnectTimeout: 10s
 
   # ══════════════════════════ load generator ══════════════════════════

@@ -96,7 +96,7 @@ const RESET_KEY = process.env.RESET_KEY || 'faultline';
 // repo. Without it the endpoint reports `configured: false` and everything else
 // keeps working - infra proof is an enhancement, never a dependency.
 const ZEROPS_API = 'https://api.app-prg1.zerops.io/api/rest/public';
-const ZEROPS_TOKEN = process.env.ZEROPS_API_TOKEN || '';
+const ZEROPS_TOKEN = process.env.ZEROPS_API_TOKEN || process.env.ZEROPSAPI || '';
 const SERVICE_IDS = {
   naive: process.env.NAIVE_SERVICE_ID || 'JMf9WwoMTu6rMwtL1xCxhA',
   hardened: process.env.HARDENED_SERVICE_ID || 'BCEMWHZdSlCcCE4atVBU4A',

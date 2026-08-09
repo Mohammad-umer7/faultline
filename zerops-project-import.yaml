@@ -1,0 +1,39 @@
+project:
+  name: faultline
+  tags:
+    - zerops-challenge
+
+services:
+  # ---------------- datastores ----------------
+  - hostname: db
+    type: postgresql:single@16
+    priority: 10
+
+  - hostname: cache
+    type: valkey@7.2
+    priority: 10
+
+  # ------------- victim A: no safety net -------------
+  - hostname: naive
+    type: nodejs@22
+    minContainers: 1
+    maxContainers: 1
+
+  # ------------- victim B: same code, real config -------------
+  - hostname: hardened
+    type: nodejs@22
+    minContainers: 2
+    maxContainers: 2
+
+  # ------------- portless load generator -------------
+  - hostname: gen
+    type: nodejs@22
+    minContainers: 1
+    maxContainers: 1
+
+  # ------------- control plane -------------
+  - hostname: api
+    type: nodejs@22
+    minContainers: 1
+    maxContainers: 1
+    enableSubdomainAccess: true

@@ -1,0 +1,63 @@
+zerops:
+  # ---------------- victim A: no safety net (control group) ----------------
+  # No deploy.readinessCheck and no run.healthCheck - both omitted deliberately.
+  # A dead or half-dead container here stays in rotation until someone notices.
+  - setup: naive
+    build:
+      base: nodejs@22
+      deployFiles:
+        - spike
+    run:
+      base: nodejs@22
+      ports:
+        - port: 3000
+          httpSupport: true
+      envVariables:
+        PORT: "3000"
+        VARIANT: naive
+      start: node spike/victim.js
+
+  # ---------------- victim B: identical code, real config ----------------
+  # Same file, same build. The entire difference is the six lines below.
+  - setup: hardened
+    build:
+      base: nodejs@22
+      deployFiles:
+        - spike
+    deploy:
+      readinessCheck:
+        httpGet:
+          port: 3000
+          path: /healthz
+        failureTimeout: 30
+        retryPeriod: 5
+    run:
+      base: nodejs@22
+      ports:
+        - port: 3000
+          httpSupport: true
+      envVariables:
+        PORT: "3000"
+        VARIANT: hardened
+      start: node spike/victim.js
+      healthCheck:
+        httpGet:
+          port: 3000
+          path: /healthz
+        failureTimeout: 15
+        disconnectTimeout: 10
+
+  # ---------------- portless load generator ----------------
+  # No ports block at all - this is a long-running worker, not a web service.
+  - setup: gen
+    build:
+      base: nodejs@22
+      deployFiles:
+        - spike
+    run:
+      base: nodejs@22
+      envVariables:
+        RPS_PER_TARGET: "10"
+        NAIVE_URL: http://naive:3000
+        HARDENED_URL: http://hardened:3000
+      start: node spike/gen.js

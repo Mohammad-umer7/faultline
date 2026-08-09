@@ -1,0 +1,10 @@
+{
+  "name": "faultline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Two identical Node services on Zerops. Same code, six lines of different config.",
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

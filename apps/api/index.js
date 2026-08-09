@@ -9,8 +9,71 @@
 // samples, held in memory. Postgres/Valkey get wired in for run history and
 // verdict permalinks; live traffic does not need them.
 const http = require('http');
+const { Pool } = require('pg');
 
 const PORT = Number(process.env.PORT || 3000);
+
+// Zerops runs with envIsolation: none, so every service can read every other
+// service's connection string directly. Nothing secret ever enters the repo.
+// Port 5432 is plaintext-only - 6432 is pgBouncer and REQUIRES TLS, so
+// ssl:false here is deliberate, not an oversight.
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || process.env.db_connectionString,
+  ssl: false,
+  max: 4,
+});
+
+let dbReady = false;
+async function initDb() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS runs (
+        id              text PRIMARY KEY,
+        type            text NOT NULL,
+        label           text NOT NULL,
+        started_at      timestamptz NOT NULL,
+        naive_failed    integer NOT NULL,
+        naive_down      integer NOT NULL,
+        hardened_failed integer NOT NULL,
+        hardened_down   integer NOT NULL
+      )
+    `);
+    dbReady = true;
+    console.log('[api] postgres ready');
+  } catch (e) {
+    // A database hiccup must never stop the live demo. History degrades; the
+    // experiment does not.
+    console.log('[api] postgres unavailable, run history disabled: ' + e.message);
+    setTimeout(initDb, 15_000);
+  }
+}
+initDb();
+
+async function persistRun(run) {
+  if (!dbReady) return;
+  try {
+    const v = run.verdict;
+    await pool.query(
+      `INSERT INTO runs (id, type, label, started_at, naive_failed, naive_down, hardened_failed, hardened_down)
+       VALUES ($1,$2,$3,to_timestamp($4/1000.0),$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING`,
+      [run.id, run.type, run.label, run.startedAt,
+       v.naive.failed, v.naive.downSeconds, v.hardened.failed, v.hardened.downSeconds]
+    );
+  } catch (e) {
+    console.log('[api] persist failed: ' + e.message);
+  }
+}
+
+async function recentRuns(limit = 10) {
+  if (!dbReady) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, type, label, started_at, naive_failed, naive_down, hardened_failed, hardened_down
+       FROM runs ORDER BY started_at DESC LIMIT $1`, [limit]
+    );
+    return rows;
+  } catch { return []; }
+}
 const WINDOW_S = 120;
 const RUN_MS = 90_000;      // spike: health check fires ~40s, replaces ~2m18s
 const COOLDOWN_MS = 20_000;
@@ -122,6 +185,7 @@ function finishRun() {
   lastRun = run;
   currentRun = null;
   lastRunEndedAt = Date.now();
+  persistRun(run);
 
   // Reset the victims so the next visitor gets a clean board.
   for (const base of Object.values(VICTIMS)) post(base, '/internal/cure');
@@ -170,6 +234,10 @@ const server = http.createServer(async (req, res) => {
       cooldownMsLeft: Math.max(0, COOLDOWN_MS - (Date.now() - lastRunEndedAt)),
       faults: Object.entries(FAULTS).map(([k, v]) => ({ type: k, label: v.label })),
     });
+  }
+
+  if (url.pathname === '/api/runs') {
+    return json(res, 200, { dbReady, runs: await recentRuns(10) });
   }
 
   if (url.pathname === '/api/fault' && req.method === 'POST') {

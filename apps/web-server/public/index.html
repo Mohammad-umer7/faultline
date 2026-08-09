@@ -31,7 +31,57 @@
   .tag { color: var(--dim); margin-top: 6px; font-size: 13px; }
   .tag b { color: var(--text); font-weight: 600; }
 
+  .howto {
+    list-style: none; counter-reset: s; margin: 18px 0 0; padding: 14px 16px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .howto li {
+    counter-increment: s; position: relative; padding-left: 30px; margin: 5px 0;
+    color: var(--dim); font-size: 13px;
+  }
+  .howto li b { color: var(--text); font-weight: 600; }
+  .howto li::before {
+    content: counter(s); position: absolute; left: 0; top: 1px;
+    width: 19px; height: 19px; border-radius: 50%; border: 1px solid var(--line);
+    display: grid; place-items: center; font-size: 10px; color: var(--dim);
+  }
+  .howto code { color: var(--hard); }
+
   .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 8px; }
+  button.fault { display: block; text-align: left; }
+  button.fault .sub {
+    display: block; font-size: 10px; letter-spacing: .3px; font-weight: 400;
+    color: var(--dim); margin-top: 4px; text-transform: none;
+  }
+
+  /* Live narration of the running experiment - without this a judge sees red
+     bars and has to guess what the system is doing. */
+  .narration {
+    display: none; margin-top: 12px; padding: 14px 16px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .narration.show { display: block; }
+  .narration.done { border-color: #2a3a4d; }
+  .nbar { height: 3px; background: #131a26; border-radius: 2px; overflow: hidden; margin-bottom: 12px; }
+  .nfill { height: 100%; width: 0; background: var(--naive-bad); transition: width .5s linear; }
+  .nhead {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px; letter-spacing: 1.5px; font-weight: 700; margin-bottom: 8px;
+  }
+  .ncount { color: var(--dim); font-weight: 400; letter-spacing: 0; }
+  .nline { font-size: 13px; padding: 3px 0 3px 22px; position: relative; color: var(--dim); }
+  .nline::before { position: absolute; left: 0; }
+  .nline.bad { color: #ffb3ba; } .nline.bad::before { content: '✕'; color: var(--naive-bad); }
+  .nline.good { color: #a9ecc8; } .nline.good::before { content: '✓'; color: var(--hard-good); }
+  .nline.wait::before { content: '·'; color: var(--dim); }
+
+  .pstate {
+    display: inline-block; margin-top: 8px; padding: 3px 9px; border-radius: 4px;
+    font-size: 10px; letter-spacing: 1.4px; font-weight: 700;
+    border: 1px solid var(--line); color: var(--dim);
+  }
+  .pstate.failing { color: var(--naive-bad); border-color: var(--naive-bad); background: rgba(255,71,87,.10); }
+  .pstate.recovered { color: var(--hard-good); border-color: var(--hard-good); background: rgba(38,222,129,.10); }
   button.fault {
     background: #1a0f14; color: #ff6b7a; border: 1px solid #4a1f28;
     padding: 11px 16px; border-radius: 6px; font-family: var(--mono);
@@ -112,8 +162,21 @@
     </div>
   </header>
 
+  <ol class="howto">
+    <li><b>Both panels below are the same app.</b> Identical code, identical build, deployed twice.</li>
+    <li><b>Only the config differs.</b> The left one has no <code>healthCheck</code>. The right one does.</li>
+    <li><b>Press a red button.</b> The identical fault hits both at the same instant. Watch them diverge.</li>
+  </ol>
+
   <div class="controls" id="controls">
     <span class="status" id="status">connecting…</span>
+  </div>
+
+  <div class="narration" id="narration">
+    <div class="nbar"><div class="nfill" id="nfill"></div></div>
+    <div class="nhead"><span id="nphase">—</span><span class="ncount" id="ncount"></span></div>
+    <div class="nline" id="nnaive"></div>
+    <div class="nline" id="nhardened"></div>
   </div>
 
   <div class="grid">
@@ -122,6 +185,7 @@
         <span class="pname">NAIVE</span>
         <span class="pcfg">1 container · no healthCheck</span>
       </div>
+      <div class="pstate" id="state-naive">healthy</div>
       <div class="tiles" id="tiles-naive"></div>
       <canvas id="chart-naive"></canvas>
       <div class="stats">
@@ -136,6 +200,7 @@
         <span class="pname">HARDENED</span>
         <span class="pcfg">healthCheck + readinessCheck</span>
       </div>
+      <div class="pstate" id="state-hardened">healthy</div>
       <div class="tiles" id="tiles-hardened"></div>
       <canvas id="chart-hardened"></canvas>
       <div class="stats">

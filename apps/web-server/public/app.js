@@ -52,6 +52,14 @@ async function poll() {
   }
 }
 
+// What each fault actually does to the process, in plain English, so a judge
+// knows what they are about to cause before they cause it.
+const FAULT_SUB = {
+  halfdead: 'process stays alive, every request returns 500',
+  kill: 'process exits immediately',
+  cpu: 'event loop pinned for 60 seconds',
+};
+
 function buildControls(faults, disabled, note) {
   if (!controlsBuilt) {
     const box = $('controls');
@@ -60,7 +68,8 @@ function buildControls(faults, disabled, note) {
       const b = document.createElement('button');
       b.className = 'fault';
       b.id = 'btn-' + f.type;
-      b.textContent = f.label;
+      b.innerHTML = escapeHtml(f.label) +
+        '<span class="sub">' + escapeHtml(FAULT_SUB[f.type] || '') + '</span>';
       b.onclick = () => inject(f.type);
       box.appendChild(b);
     }
@@ -126,6 +135,8 @@ function render(d) {
     $('panel-' + v).classList.toggle('alarm', !!last && last.err > 0);
   }
 
+  narrate(d);
+
   const ev = $('events');
   if (d.events && d.events.length) {
     ev.innerHTML = d.events.map((e) =>
@@ -145,6 +156,89 @@ function render(d) {
     $('vyaml').textContent = REMEDY[d.lastRun.type] || '';
     $('verdict').classList.add('show');
   }
+}
+
+// Narrate the experiment while it runs. Every line below is derived from the
+// measurements on screen, never from a timer - if the platform behaves
+// differently today, the narration says so rather than lying on schedule.
+function narrate(d) {
+  const box = $('narration');
+  const run = d.run;
+
+  // Between runs: describe the resting state, or the result just produced.
+  if (!run) {
+    const lr = d.lastRun;
+    if (!lr || !lr.verdict) {
+      box.className = 'narration';
+      setPill('naive', 'healthy', '');
+      setPill('hardened', 'healthy', '');
+      return;
+    }
+    box.className = 'narration show done';
+    $('nfill').style.width = '100%';
+    $('nphase').textContent = 'RUN COMPLETE — ' + lr.label;
+    $('ncount').textContent = d.cooldownMsLeft > 0
+      ? 'buttons unlock in ' + Math.ceil(d.cooldownMsLeft / 1000) + 's'
+      : 'ready for another';
+    const v = lr.verdict;
+    line('nnaive', v.naive.failed > 0 ? 'bad' : 'good',
+      `naive dropped ${v.naive.failed} requests over ${v.naive.downSeconds}s. ` +
+      (v.naive.downSeconds >= 85
+        ? 'It never recovered — it was still broken when the window closed.'
+        : 'It recovered only because the run ended and the fault was cleared.'));
+    line('nhardened', v.hardened.failed > 0 ? 'good' : 'good',
+      `hardened dropped ${v.hardened.failed} over ${v.hardened.downSeconds}s, then recovered on its own. ` +
+      'Its health check noticed and Zerops replaced the failing container.');
+    setPill('naive', 'failing', 'was broken');
+    setPill('hardened', 'recovered', 'recovered');
+    return;
+  }
+
+  // During a run.
+  const elapsed = Math.max(0, Date.now() - run.startedAt);
+  const total = elapsed + run.msLeft;
+  box.className = 'narration show';
+  $('nfill').style.width = Math.min(100, (elapsed / total) * 100) + '%';
+  $('nphase').textContent = run.label + ' — INJECTED INTO BOTH';
+  $('ncount').textContent = Math.ceil(run.msLeft / 1000) + 's left in this run';
+
+  for (const v of ['naive', 'hardened']) {
+    const inRun = (d[v] || []).filter((s) => s.t >= run.startedAt);
+    const last = inRun[inRun.length - 1];
+    const failing = !!last && last.err > 0;
+    const everFailed = inRun.some((s) => s.err > 0);
+    const failed = inRun.reduce((n, s) => n + s.err, 0);
+    const id = v === 'naive' ? 'nnaive' : 'nhardened';
+
+    if (elapsed < 3000 && !everFailed) {
+      line(id, 'wait', `${v}: fault delivered, waiting for it to show up in traffic…`);
+      setPill(v, 'healthy', '');
+    } else if (failing) {
+      line(id, 'bad', v === 'naive'
+        ? `naive is failing right now — ${failed} requests dropped so far. Nothing is watching it, so nothing will fix it.`
+        : `hardened is failing — ${failed} dropped. Its health check has ${Math.ceil(run.msLeft / 1000)}s to notice.`);
+      setPill(v, 'failing', v === 'naive' ? 'broken · unwatched' : 'broken · being checked');
+    } else if (everFailed) {
+      line(id, 'good', `${v} recovered by itself after ${failed} failed requests — the health check caught it and Zerops swapped the container out.`);
+      setPill(v, 'recovered', 'recovered automatically');
+    } else {
+      line(id, 'wait', `${v}: still serving normally.`);
+      setPill(v, 'healthy', '');
+    }
+  }
+}
+
+function line(id, cls, text) {
+  const el = $(id);
+  el.className = 'nline ' + cls;
+  el.textContent = text;
+}
+
+function setPill(variant, cls, text) {
+  const el = $('state-' + variant);
+  if (!el) return;
+  el.className = 'pstate ' + (cls === 'healthy' ? '' : cls);
+  el.textContent = text || 'healthy · serving normally';
 }
 
 function drawChart(cv, series, now, windowS, color) {

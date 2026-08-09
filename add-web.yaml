@@ -1,4 +1,0 @@
-services:
-  - hostname: web
-    type: static
-    enableSubdomainAccess: true

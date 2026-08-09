@@ -102,15 +102,32 @@ zerops:
       start: node apps/gen/index.js
 
   # ════════════════════════════ the console ════════════════════════════
-  - setup: web
+  # Its own container, publicly routed, isolated from every fault target.
+  # See apps/web-server/index.js for why this is a Node service and not a
+  # Zerops `static` service.
+  - setup: console
     build:
       base: nodejs@22
-      # The trailing /~ deploys the CONTENTS of apps/web to the web root.
-      # Without it the files land at /var/www/apps/web and every path 404s.
       deployFiles:
-        - apps/web/~
+        - apps/web-server
+    deploy:
+      readinessCheck:
+        httpGet:
+          port: 3000
+          path: /healthz
+        failureTimeout: 30s
+        retryPeriod: 10s
     run:
-      # `base: static` is required. `documentRoot` is NOT valid for static
-      # services - setting it makes the container fail to start and the
-      # subdomain serves 502 with no application or webserver logs at all.
-      base: static
+      base: nodejs@22
+      ports:
+        - port: 3000
+          httpSupport: true
+      envVariables:
+        PORT: "3000"
+      start: node apps/web-server/index.js
+      healthCheck:
+        httpGet:
+          port: 3000
+          path: /healthz
+        failureTimeout: 30s
+        disconnectTimeout: 15s

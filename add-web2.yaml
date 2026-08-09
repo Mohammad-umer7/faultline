@@ -1,0 +1,6 @@
+services:
+  - hostname: console
+    type: nodejs@22
+    minContainers: 1
+    maxContainers: 1
+    enableSubdomainAccess: true

@@ -110,6 +110,11 @@ function render(d) {
     const failedNow = running
       ? series.filter((s) => s.t >= d.run.startedAt).reduce((n, s) => n + s.err, 0)
       : series.reduce((n, s) => n + s.err, 0);
+    // Say WHICH failures are being counted. A rolling 120s total sitting next to
+    // a "healthy" badge reads as a contradiction rather than as history.
+    const fl = $('flabel-' + v);
+    if (fl) fl.textContent = running ? 'FAILED · THIS RUN' : 'FAILED · LAST 120s';
+
     const fe = $('fail-' + v);
     fe.textContent = failedNow;
     fe.className = 'v' + (failedNow > 0 ? ' bad' : failedNow === 0 && running ? ' good' : '');

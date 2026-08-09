@@ -29,8 +29,12 @@ zerops:
         httpGet:
           port: 3000
           path: /healthz
-        failureTimeout: 30
-        retryPeriod: 5
+        # These are Go durations, NOT integers. The docs example shows bare ints
+        # (`failureTimeout: 60`) and the API rejects them:
+        #   "cannot unmarshal !!int `30` into time.Duration"
+        failureTimeout: 30s
+        # retryPeriod is clamped to <10s, 1h>. Anything below 10s is rejected.
+        retryPeriod: 10s
     run:
       base: nodejs@22
       ports:
@@ -44,8 +48,8 @@ zerops:
         httpGet:
           port: 3000
           path: /healthz
-        failureTimeout: 15
-        disconnectTimeout: 10
+        failureTimeout: 15s
+        disconnectTimeout: 10s
 
   # ---------------- portless load generator ----------------
   # No ports block at all - this is a long-running worker, not a web service.

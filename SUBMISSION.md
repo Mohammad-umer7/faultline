@@ -6,7 +6,7 @@
 |---|---|
 | **Project title** | Faultline |
 | **Live deployment** | https://console-2db9-3000.prg1.zerops.app |
-| **Repository** | https://github.com/Mohammad-umer7/faultline |
+| **Repository** | https://github.com/Mohammad-Umar7/faultline |
 | **Demo video** | *you record this — script below* |
 
 ---
@@ -86,7 +86,7 @@ Screencast only. No title card, no face, no intro. Product on screen at 0:00.
 
 **Reply 1:** `Live, no signup: https://console-2db9-3000.prg1.zerops.app`
 
-**Reply 2:** `Source, MIT: https://github.com/Mohammad-umer7/faultline — both zerops.yml blocks are in the README so you can diff naive vs hardened yourself.`
+**Reply 2:** `Source, MIT: https://github.com/Mohammad-Umar7/faultline — both zerops.yml blocks are in the README so you can diff naive vs hardened yourself.`
 
 **Reply 3:** *(screenshot of the Zerops project topology)* `7 services on one @zeropsio project: console, api, a portless load generator running 20 req/s over the private network, two victims, Postgres, Valkey. One import YAML, one command.`
 
